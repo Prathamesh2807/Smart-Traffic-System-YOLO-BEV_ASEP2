@@ -12,7 +12,7 @@ It also provides traffic density estimation and heatmap visualization.
 
 ## 🎥 Demo Video
 
-👉 (Paste Google Drive Link Here)
+👉 https://drive.google.com/drive/folders/1tQHxOUryJvcnEer81LOL6YC8mtuKzNF8
 
 ---
 
@@ -21,7 +21,7 @@ It also provides traffic density estimation and heatmap visualization.
 ⚠️ Videos are not included in this repository due to large file size.
 
 Download videos from:
-👉 (Paste Google Drive Link Here)
+👉 https://drive.google.com/drive/folders/1tQHxOUryJvcnEer81LOL6YC8mtuKzNF8
 
 After downloading, place them inside the `data/` folder and rename exactly as:
 
