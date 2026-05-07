@@ -1,131 +1,108 @@
-# Smart-Traffic-System-YOLO-BEV_ASEP2
-Real-time traffic density &amp; smart signal system using YOLO and BEV
+# 🚦 AI Smart Traffic Signal – Chowk Simulation
 
-IMPQ : These are the instructions for further my team members go through the readme i have made and you will get what what to do 
-
-# 🚦 Smart Traffic Monitoring System (YOLO + SORT + BEV + Heatmap)   (till now this much progress is done by pk2807)
-
-A computer vision-based traffic analysis system that detects, tracks, and counts vehicles using YOLOv8 and SORT.  
-It also provides traffic density estimation and heatmap visualization.
+A **real-time 4-way city intersection simulation** with AI-controlled traffic signals,
+vehicle physics, and ambulance emergency pre-emption.  Built for final-year engineering
+project presentations.
 
 ---
 
-## 🎥 Demo Video
+## 📦 Requirements
 
-👉 https://drive.google.com/drive/folders/1tQHxOUryJvcnEer81LOL6YC8mtuKzNF8
+```
+Python 3.10+
+pygame  2.x
+numpy   (any recent version)
+```
 
----
+Install with:
 
-## 📁 Dataset / Videos
-
-⚠️ Videos are not included in this repository due to large file size.
-
-Download videos from:
-👉 https://drive.google.com/drive/folders/1tQHxOUryJvcnEer81LOL6YC8mtuKzNF8
-
-After downloading, place them inside the `data/` folder and rename exactly as:
-
-traffic_main.mp4  
-traffic_test.mp4  
+```bash
+pip install pygame numpy
+```
 
 ---
 
-## 🚀 Features
+## ▶️  How to Run
 
-- Vehicle Detection using YOLOv8  
-- Multi-object Tracking using SORT  
-- Unique Vehicle Counting (Line Crossing)  
-- Region of Interest (ROI) filtering  
-- Bird’s Eye View (BEV) transformation  
-- Traffic Density Detection (LOW / MEDIUM / HIGH)  
-- Heatmap Visualization  
+```bash
+cd traffic_simulation
+python main.py
+```
 
----
-
-## 🛠️ Installation
-
-pip install -r requirements.txt
+| Key       | Action                              |
+|-----------|-------------------------------------|
+| `ESC / Q` | Quit the simulation                 |
+| `A`       | Manually spawn an ambulance (demo)  |
 
 ---
 
-## ▶️ Run the Project
+## 📁 File Structure
 
-python detection/main1.py
-
----
-
-## 📂 Project Structure
-
-Smart-Traffic-System/
+```
+traffic_simulation/
 │
-├── detection/
-│   ├── main1.py
-│   ├── sort.py
-│
-├── data/
-│
-├── requirements.txt
-├── README.md
-├── .gitignore
+├── main.py        ← Entry point – game loop, orchestration
+├── config.py      ← ALL settings (edit here!)
+├── vehicles.py    ← Vehicle class, spawning helpers
+├── signals.py     ← AI Traffic Controller (green-time AI logic)
+└── renderer.py    ← Drawing: roads, buildings, signals, HUD
+```
 
 ---
 
-## ⚠️ Important Notes
+## ⚙️  Customisation (config.py)
 
-- Do NOT upload:
-  - .venv/
-  - .pt model files
-  - .mp4 videos
-
-- These are handled using .gitignore
-
----
-
-## 👥 Instructions for Team Members
-
-1. Clone repository:
-git clone <your-repo-link>
-
-2. Install dependencies:
-pip install -r requirements.txt
-
-3. Download videos from Google Drive
-
-4. Place videos inside:
-data/
-
-5. Rename correctly:
-traffic_main.mp4  
-traffic_test.mp4  
-
-6. Run project:
-python detection/main1.py
+| Setting             | Default | Meaning                                    |
+|---------------------|---------|--------------------------------------------|
+| `MAX_GREEN_TIME`    | 30 s    | Maximum green signal cap                   |
+| `MIN_GREEN_TIME`    | 5 s     | Minimum green – never too short            |
+| `YELLOW_TIME`       | 3 s     | Duration of yellow phase                   |
+| `SPAWN_INTERVAL`    | 1.8 s   | Seconds between spawn attempts per lane    |
+| `SPAWN_CHANCE`      | 0.85    | Probability a vehicle spawns per interval  |
+| `AMBULANCE_CHANCE`  | 0.04    | Probability a vehicle is an ambulance      |
+| `AMBULANCE_GREEN_HOLD` | 12 s | Green held for ambulance clearance        |
+| `FPS`               | 60      | Target frame rate                          |
+| `VEHICLE_TYPES`     | —       | Each type: speed, size, weight, colour     |
 
 ---
 
-## 📊 Output
+## 🤖 AI Signal Logic
 
-- Vehicle count  
-- Tracking IDs  
-- Heatmap visualization  
-- BEV (top view)  
-- Traffic density status  
+### Green-Time Calculation
+```
+green_time = Σ weight(vehicle_i)  +  0.5 × avg(dist_i / speed_i)
+```
+Capped: `MIN_GREEN_TIME ≤ green_time ≤ MAX_GREEN_TIME`
+
+| Vehicle  | Weight (sec) | Speed (px/s) |
+|----------|-------------|--------------|
+| Bike     | 1           | 120          |
+| Car      | 2           | 90           |
+| Bus      | 3           | 60           |
+| Truck    | 4           | 50           |
+| Ambulance| bypass      | 150          |
+
+### Fairness (Anti-Starvation)
+- Tracks last 2 served directions using a deque.
+- A recently served direction is de-prioritised when other sides are waiting.
+- Falls back to all-eligible if everyone was recently served.
+
+### Ambulance Priority
+1. Ambulance detected within 200 px of stop-line → immediate green.
+2. All other signals forced RED.
+3. Green held for `AMBULANCE_GREEN_HOLD` seconds (default 12 s).
+4. Auto-resumes normal cycle once ambulance has cleared.
 
 ---
 
-## 🧠 Future Improvements
+## 🎨 Visual Features
 
-- Improve tracking using DeepSORT  
-- Vehicle speed estimation  
-- Lane detection  
-- Traffic violation detection  
-
----
-
-## 📌 Summary
-
-Detection → Tracking → Counting → BEV → Heatmap → Density Analysis
-
----
-
-🔥 Clean, simple, and ready for further development.
+- Semi-3D top-down city view with procedurally generated buildings
+- Lit window patterns on buildings
+- Dashed lane markings, curbs, zebra crossings
+- Traffic signal poles with red/yellow/green glow halos
+- Vehicle headlights, ambulance cross + flashing light bar
+- Live HUD dashboard with density bars and countdown timer
+- Flashing red emergency banner during ambulance mode
+- Compass rose (top-right)
+- Pseudo-depth sorting (vehicles drawn by Y for depth)
