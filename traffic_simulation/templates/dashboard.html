@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI Traffic Signal — Cloud Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #1c2130;
+  --panel:    rgba(16,20,30,0.88);
+  --border:   rgba(55,75,115,0.6);
+  --text:     #dae4ff;
+  --dim:      #7d8caa;
+  --hi:       #4b9bff;
+  --green:    #30d74e;
+  --yellow:   #e1c81c;
+  --red:      #e13030;
+  --north:    #64b2ff;
+  --south:    #ff9464;
+  --east:     #64da9e;
+  --west:     #dcb264;
+  --ambu:     #ff4141;
+  --card-r:   14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(75,155,255,0.07) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 100%, rgba(100,218,158,0.06) 0%, transparent 60%);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--card-r);
+  padding: 12px 20px;
+  backdrop-filter: blur(12px);
+}
+header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing:.02em; }
+header h1 span { color: var(--hi); }
+.live-badge {
+  display:flex; align-items:center; gap:6px;
+  background: rgba(48,215,78,0.12);
+  border: 1px solid rgba(48,215,78,0.35);
+  border-radius: 20px; padding: 3px 10px;
+  font-size:.72rem; font-weight:600; color: var(--green);
+}
+.live-dot {
+  width:8px; height:8px; border-radius:50%;
+  background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.75)} }
+.header-meta { margin-left:auto; display:flex; gap:20px; font-size:.8rem; color:var(--dim); }
+.header-meta span { font-family:'JetBrains Mono',monospace; }
+.header-meta strong { color:var(--text); }
+
+/* ── Stats row ── */
+.stats-row { display:grid; grid-template-columns:repeat(7,1fr); gap:12px; }
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--card-r);
+  padding: 14px 16px;
+  backdrop-filter: blur(8px);
+  transition: border-color .3s;
+}
+.stat-card:hover { border-color: var(--hi); }
+.stat-label { font-size:.7rem; color:var(--dim); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.stat-value { font-size:1.7rem; font-weight:700; font-family:'JetBrains Mono',monospace; line-height:1; }
+.stat-sub   { font-size:.72rem; color:var(--dim); margin-top:4px; }
+.mode-normal   { color: var(--green); }
+.mode-emergency{ color: var(--ambu); }
+
+/* ── Main chart ── */
+.chart-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--card-r);
+  padding: 18px 20px;
+  backdrop-filter: blur(8px);
+}
+.chart-header { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.chart-header h2 { font-size:.9rem; font-weight:600; }
+.legend { display:flex; gap:14px; margin-left:auto; flex-wrap:wrap; }
+.leg { display:flex; align-items:center; gap:5px; font-size:.75rem; color:var(--dim); }
+.leg-dot { width:10px; height:10px; border-radius:50%; }
+.leg-dashed { width:18px; height:2px; border-top:2px dashed; opacity:.7; }
+.chart-wrap { position:relative; height:240px; }
+
+/* ── Bottom grid ── */
+.bottom-grid { display:grid; grid-template-columns:1fr 1.3fr 1fr; gap:12px; }
+
+/* ── Signal panel ── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--card-r);
+  padding: 16px;
+  backdrop-filter: blur(8px);
+}
+.panel h2 { font-size:.85rem; font-weight:600; margin-bottom:14px; color:var(--hi); }
+.signals-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sig-box {
+  border-radius:10px;
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 10px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  background: rgba(255,255,255,.03);
+}
+.sig-label { font-size:.7rem; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+.sig-light {
+  width:28px; height:28px; border-radius:50%;
+  transition: background .3s, box-shadow .3s;
+}
+.sig-phase { font-size:.68rem; font-family:'JetBrains Mono',monospace; }
+.sig-count { font-size:.75rem; color:var(--dim); }
+
+/* ── Prediction table ── */
+.pred-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+.pred-table th { color:var(--dim); font-weight:500; padding:4px 8px; text-align:center; font-size:.7rem; text-transform:uppercase; }
+.pred-table td { padding:5px 8px; text-align:center; border-top:1px solid rgba(255,255,255,.05); }
+.pred-table td:first-child { text-align:left; font-weight:600; }
+.conf-bar { width:60px; height:6px; background:rgba(255,255,255,.1); border-radius:3px; display:inline-block; position:relative; overflow:hidden; }
+.conf-fill { height:100%; border-radius:3px; background: linear-gradient(90deg,var(--hi),var(--green)); }
+.trend-up   { color:var(--ambu); font-size:.7rem; }
+.trend-down { color:var(--green); font-size:.7rem; }
+.trend-flat { color:var(--dim); font-size:.7rem; }
+
+/* ── Queue bars ── */
+.queue-bars { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.q-row { display:flex; align-items:center; gap:8px; }
+.q-label { font-size:.72rem; width:42px; font-weight:600; }
+.q-bar-wrap { flex:1; height:8px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; }
+.q-bar { height:100%; border-radius:4px; transition:width .5s ease; }
+.q-count { font-size:.72rem; width:30px; text-align:right; font-family:'JetBrains Mono',monospace; }
+
+/* ── Ambulance log ── */
+.ambu-log { display:flex; flex-direction:column; gap:0; overflow-y:auto; max-height:220px; }
+.log-entry {
+  display:flex; gap:8px; align-items:flex-start;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  animation: slideIn .3s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:none} }
+.log-time { font-size:.68rem; font-family:'JetBrains Mono',monospace; color:var(--dim); white-space:nowrap; margin-top:1px; }
+.log-msg  { font-size:.75rem; color:var(--text); }
+.log-empty{ color:var(--dim); font-size:.8rem; text-align:center; padding:20px; }
+.connecting { text-align:center; padding:60px; color:var(--dim); animation:pulse 1.5s infinite; }
+
+/* ── Accident card pulse ── */
+.accident-active {
+  border-color: var(--ambu) !important;
+  animation: accidentPulse 1s ease-in-out infinite;
+}
+@keyframes accidentPulse {
+  0%,100%{ box-shadow: 0 0 0 0 rgba(255,65,65,0); }
+  50%{ box-shadow: 0 0 18px 4px rgba(255,65,65,0.35); }
+}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .stats-row { grid-template-columns:repeat(4,1fr); }
+  .bottom-grid{ grid-template-columns:1fr 1fr; }
+}
+@media(max-width:700px){
+  .stats-row { grid-template-columns:1fr 1fr; }
+  .bottom-grid{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <h1>🚦 AI Smart Traffic Signal &nbsp;<span>Chowk</span></h1>
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  <div class="header-meta">
+    <div>Sim Time <strong><span id="hSimTime">0s</span></strong></div>
+    <div>FPS <strong><span id="hFps">—</span></strong></div>
+    <div>Model Confidence <strong><span id="hConf">—</span></strong></div>
+  </div>
+</header>
+
+<!-- ── Stats Cards ── -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">Total Passed</div>
+    <div class="stat-value" id="sTotalPassed" style="color:var(--hi)">—</div>
+    <div class="stat-sub">vehicles cleared</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Throughput</div>
+    <div class="stat-value" id="sThroughput" style="color:var(--east)">—</div>
+    <div class="stat-sub">vehicles / min</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Current Mode</div>
+    <div class="stat-value mode-normal" id="sMode" style="font-size:1.1rem;margin-top:4px">—</div>
+    <div class="stat-sub" id="sGreenDir">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Emergencies</div>
+    <div class="stat-value" id="sEmergency" style="color:var(--ambu)">—</div>
+    <div class="stat-sub">total events</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Countdown</div>
+    <div class="stat-value" id="sCountdown" style="color:var(--yellow)">—</div>
+    <div class="stat-sub" id="sPhase">—</div>
+  </div>
+  <div class="stat-card" id="accidentCard">
+    <div class="stat-label">Accident Status</div>
+    <div class="stat-value" id="sAccident" style="color:var(--green);font-size:1.1rem;margin-top:4px">CLEAR</div>
+    <div class="stat-sub" id="sAccidentSub">No incidents</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Wait Time</div>
+    <div class="stat-value" id="sAvgWait" style="color:var(--yellow)">—</div>
+    <div class="stat-sub">seconds (overall)</div>
+  </div>
+</div>
+
+<!-- ── Live Queue Chart ── -->
+<div class="chart-card">
+  <div class="chart-header">
+    <h2>📈 Live Queue History &amp; AI Prediction</h2>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:var(--north)"></div>North</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--south)"></div>South</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--east)"></div>East</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--west)"></div>West</div>
+      <div class="leg"><div class="leg-dashed" style="border-color:var(--dim)"></div>30s forecast</div>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="queueChart"></canvas></div>
+</div>
+
+<!-- ── Bottom Grid ── -->
+<div class="bottom-grid">
+
+  <!-- Signals + Queue Bars -->
+  <div class="panel">
+    <h2>🚦 Signal Status</h2>
+    <div class="signals-grid">
+      <div class="sig-box" id="sig-north">
+        <div class="sig-label">North</div>
+        <div class="sig-light" id="sl-north"></div>
+        <div class="sig-phase" id="sp-north">—</div>
+        <div class="sig-count" id="sq-north">0 veh</div>
+        <div class="sig-count" id="sw-north" style="color:var(--yellow);font-size:.68rem">wait: —</div>
+      </div>
+      <div class="sig-box" id="sig-south">
+        <div class="sig-label">South</div>
+        <div class="sig-light" id="sl-south"></div>
+        <div class="sig-phase" id="sp-south">—</div>
+        <div class="sig-count" id="sq-south">0 veh</div>
+        <div class="sig-count" id="sw-south" style="color:var(--yellow);font-size:.68rem">wait: —</div>
+      </div>
+      <div class="sig-box" id="sig-east">
+        <div class="sig-label">East</div>
+        <div class="sig-light" id="sl-east"></div>
+        <div class="sig-phase" id="sp-east">—</div>
+        <div class="sig-count" id="sq-east">0 veh</div>
+        <div class="sig-count" id="sw-east" style="color:var(--yellow);font-size:.68rem">wait: —</div>
+      </div>
+      <div class="sig-box" id="sig-west">
+        <div class="sig-label">West</div>
+        <div class="sig-light" id="sl-west"></div>
+        <div class="sig-phase" id="sp-west">—</div>
+        <div class="sig-count" id="sq-west">0 veh</div>
+        <div class="sig-count" id="sw-west" style="color:var(--yellow);font-size:.68rem">wait: —</div>
+      </div>
+    </div>
+    <div class="queue-bars" style="margin-top:14px">
+      <div class="q-row">
+        <div class="q-label" style="color:var(--north)">North</div>
+        <div class="q-bar-wrap"><div class="q-bar" id="qb-north" style="background:var(--north);width:0%"></div></div>
+        <div class="q-count" id="qc-north">0</div>
+      </div>
+      <div class="q-row">
+        <div class="q-label" style="color:var(--south)">South</div>
+        <div class="q-bar-wrap"><div class="q-bar" id="qb-south" style="background:var(--south);width:0%"></div></div>
+        <div class="q-count" id="qc-south">0</div>
+      </div>
+      <div class="q-row">
+        <div class="q-label" style="color:var(--east)">East</div>
+        <div class="q-bar-wrap"><div class="q-bar" id="qb-east" style="background:var(--east);width:0%"></div></div>
+        <div class="q-count" id="qc-east">0</div>
+      </div>
+      <div class="q-row">
+        <div class="q-label" style="color:var(--west)">West</div>
+        <div class="q-bar-wrap"><div class="q-bar" id="qb-west" style="background:var(--west);width:0%"></div></div>
+        <div class="q-count" id="qc-west">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Predictions Table -->
+  <div class="panel">
+    <h2>🤖 AI Traffic Predictions</h2>
+    <table class="pred-table">
+      <thead>
+        <tr>
+          <th>Dir</th><th>Now</th><th>30s</th><th>60s</th><th>90s</th><th>Trend</th><th>Conf.</th>
+        </tr>
+      </thead>
+      <tbody id="predTable">
+        <tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">Waiting for data…</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:14px">
+      <div style="font-size:.72rem;color:var(--dim);margin-bottom:8px">AMBULANCE QUEUE</div>
+      <div id="ambuQueue" style="font-size:.82rem;color:var(--ambu)">None</div>
+    </div>
+  </div>
+
+  <!-- Ambulance Event Log -->
+  <div class="panel">
+    <h2>🚨 Event Log</h2>
+    <div class="ambu-log" id="eventLog">
+      <div class="log-empty">No events yet</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Direction colours ────────────────────────────────────
+const DIR_COLORS = {
+  north: getComputedStyle(document.documentElement).getPropertyValue('--north').trim() || '#64b2ff',
+  south: '#ff9464',
+  east:  '#64da9e',
+  west:  '#dcb264',
+};
+const SIGNAL_COLORS = { red:'#e13030', yellow:'#e1c81c', green:'#30d74e' };
+const SIGNAL_GLOW   = { red:'rgba(225,48,48,.45)', yellow:'rgba(225,200,28,.45)', green:'rgba(48,215,78,.45)' };
+const DIRS = ['north','south','east','west'];
+const MAX_CHART_PTS = 60;
+
+// ── Chart setup ─────────────────────────────────────────
+const labels = Array.from({length:MAX_CHART_PTS}, (_,i) => '');
+function mkDataset(dir, dashed=false){
+  return {
+    label: dashed ? `${dir} (pred)` : dir.charAt(0).toUpperCase()+dir.slice(1),
+    data: Array(MAX_CHART_PTS).fill(null),
+    borderColor: DIR_COLORS[dir],
+    backgroundColor: dashed ? 'transparent' : DIR_COLORS[dir]+'22',
+    borderWidth: dashed ? 2 : 2,
+    borderDash: dashed ? [5,4] : [],
+    tension: 0.35,
+    fill: !dashed,
+    pointRadius: 0,
+    pointHoverRadius: dashed ? 0 : 3,
+  };
+}
+const datasets = [
+  ...DIRS.map(d => mkDataset(d, false)),
+  ...DIRS.map(d => mkDataset(d, true)),
+];
+const chart = new Chart(document.getElementById('queueChart'), {
+  type: 'line',
+  data: { labels, datasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode:'index', intersect:false },
+    plugins: {
+      legend: { display:false },
+      tooltip: {
+        backgroundColor:'rgba(16,20,30,.95)',
+        borderColor:'rgba(55,75,115,.6)',
+        borderWidth:1,
+        titleColor:'#dae4ff',
+        bodyColor:'#7d8caa',
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '—'} veh`,
+        }
+      }
+    },
+    scales: {
+      x: { display:false },
+      y: {
+        min:0,
+        grid:{ color:'rgba(255,255,255,.05)' },
+        ticks:{ color:'#7d8caa', font:{size:11}, maxTicksLimit:6 },
+        title:{ display:true, text:'Queue length', color:'#7d8caa', font:{size:11} }
+      }
+    }
+  }
+});
+
+// ── Helpers ─────────────────────────────────────────────
+function setTxt(id, v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+function updateSignal(dir, color, count){
+  const sl = document.getElementById('sl-'+dir);
+  const sp = document.getElementById('sp-'+dir);
+  const sq = document.getElementById('sq-'+dir);
+  if(!sl) return;
+  sl.style.background  = SIGNAL_COLORS[color]||'#333';
+  sl.style.boxShadow   = `0 0 14px 4px ${SIGNAL_GLOW[color]||'transparent'}`;
+  if(sp) sp.textContent = color.toUpperCase();
+  if(sq) sq.textContent = `${count} veh`;
+}
+
+function updateQueueBar(dir, count){
+  const MAX=15;
+  const pct = Math.min(100, (count/MAX)*100).toFixed(1);
+  const bar = document.getElementById('qb-'+dir);
+  const cnt = document.getElementById('qc-'+dir);
+  if(bar) bar.style.width = pct+'%';
+  if(cnt) cnt.textContent = count;
+}
+
+function trendIcon(slope){
+  if(Math.abs(slope)<0.03) return '<span class="trend-flat">→</span>';
+  return slope>0 ? '<span class="trend-up">↑</span>' : '<span class="trend-down">↓</span>';
+}
+
+function confBar(c){
+  const pct = (c*100).toFixed(0);
+  return `<span class="conf-bar"><span class="conf-fill" style="width:${pct}%"></span></span> ${pct}%`;
+}
+
+function updatePredTable(predictions){
+  const body = document.getElementById('predTable');
+  if(!body||!predictions) return;
+  const dirLabels = {north:'N',south:'S',east:'E',west:'W'};
+  const dirColors = DIR_COLORS;
+  body.innerHTML = DIRS.map(d=>{
+    const p = predictions[d]||{};
+    const smooth = (p.smooth||0).toFixed(1);
+    const f30    = (p.forecast_30||0).toFixed(1);
+    const f60    = (p.forecast_60||0).toFixed(1);
+    const f90    = (p.forecast_90||0).toFixed(1);
+    const trend  = trendIcon(p.trend||0);
+    const conf   = confBar(p.confidence||0);
+    return `<tr>
+      <td style="color:${dirColors[d]}">${d.charAt(0).toUpperCase()+d.slice(1)}</td>
+      <td>${smooth}</td><td>${f30}</td><td>${f60}</td><td>${f90}</td>
+      <td>${trend}</td><td>${conf}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateEventLog(log){
+  const el = document.getElementById('eventLog');
+  if(!el) return;
+  if(!log||log.length===0){
+    el.innerHTML='<div class="log-empty">No events yet</div>';
+    return;
+  }
+  el.innerHTML = [...log].reverse().map(e=>
+    `<div class="log-entry"><span class="log-time">${e.time}</span><span class="log-msg">${e.event}</span></div>`
+  ).join('');
+}
+
+// ── Chart rolling update ─────────────────────────────────
+let tick = 0;
+function pushChartData(queues, predictions){
+  tick++;
+  // Shift left
+  chart.data.labels.shift(); chart.data.labels.push('');
+  DIRS.forEach((d,i)=>{
+    const hist = chart.data.datasets[i].data;
+    hist.shift();
+    hist.push(queues && queues[d] !== undefined ? queues[d] : null);
+    // Prediction: show 30s forecast as a single point at end
+    const phist = chart.data.datasets[i+4].data;
+    phist.shift();
+    const pred = predictions && predictions[d] ? predictions[d].forecast_30 : null;
+    phist.push(pred);
+  });
+  chart.update('none');
+}
+
+// ── SSE connection ───────────────────────────────────────
+let lastLogLen = 0;
+const evtSource = new EventSource('/stream');
+
+evtSource.onmessage = (e) => {
+  let d;
+  try { d = JSON.parse(e.data); } catch{ return; }
+
+  // Header
+  const st = d.sim_time || 0;
+  setTxt('hSimTime', st>=60 ? `${Math.floor(st/60)}m ${Math.floor(st%60)}s` : `${Math.floor(st)}s`);
+  setTxt('hFps', d.fps !== undefined ? d.fps.toFixed(0) : '—');
+  setTxt('hConf', d.avg_conf !== undefined ? (d.avg_conf*100).toFixed(0)+'%' : '—');
+
+  // Stats cards
+  setTxt('sTotalPassed', d.total_passed !== undefined ? d.total_passed : '—');
+  setTxt('sThroughput',  d.throughput   !== undefined ? d.throughput   : '—');
+  const modeEl = document.getElementById('sMode');
+  if(modeEl){
+    modeEl.textContent = d.mode||'—';
+    modeEl.className   = d.mode==='EMERGENCY' ? 'stat-value mode-emergency' : 'stat-value mode-normal';
+  }
+  setTxt('sGreenDir', d.green_dir ? `Green → ${d.green_dir}` : 'No green');
+  setTxt('sEmergency', d.emergency_count !== undefined ? d.emergency_count : '—');
+  setTxt('sCountdown',  d.countdown !== undefined ? d.countdown.toFixed(1)+'s' : '—');
+  setTxt('sPhase', d.phase || '—');
+
+  // Signals + bars
+  if(d.signals && d.queues){
+    DIRS.forEach(dir=>{
+      updateSignal(dir, d.signals[dir]||'red', d.queues[dir]||0);
+      updateQueueBar(dir, d.queues[dir]||0);
+      // Per-direction wait time
+      const wEl = document.getElementById('sw-'+dir);
+      if(wEl && d.avg_wait_times && d.avg_wait_times[dir] !== undefined){
+        wEl.textContent = `wait: ${d.avg_wait_times[dir].toFixed(1)}s`;
+      }
+    });
+  }
+
+  // Overall avg wait card
+  if(d.overall_avg_wait !== undefined){
+    setTxt('sAvgWait', d.overall_avg_wait.toFixed(1)+'s');
+  }
+
+  // AI predictions table
+  updatePredTable(d.predictions);
+
+  // Ambulance queue
+  const aqEl = document.getElementById('ambuQueue');
+  if(aqEl){
+    const aq = d.ambulance_queue||[];
+    aqEl.textContent = aq.length ? aq.map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' → ') : 'None';
+  }
+
+  // Event log
+  updateEventLog(d.ambulance_log);
+
+  // Chart
+  pushChartData(d.queues||{}, d.predictions||{});
+
+  // Accident status card
+  const accCard = document.getElementById('accidentCard');
+  const accVal  = document.getElementById('sAccident');
+  const accSub  = document.getElementById('sAccidentSub');
+  if(accCard && accVal && accSub){
+    const acc = d.accident || {};
+    if(acc.active){
+      accCard.classList.add('accident-active');
+      accVal.textContent = 'ACCIDENT';
+      accVal.style.color = 'var(--ambu)';
+      const dir = acc.direction ? acc.direction.charAt(0).toUpperCase()+acc.direction.slice(1) : '?';
+      const divTo = acc.diversion_direction ? acc.diversion_direction.charAt(0).toUpperCase()+acc.diversion_direction.slice(1) : '?';
+      const dur = acc.duration || 0;
+      let sub = `${dir} lane · ${dur.toFixed(0)}s`;
+      if(acc.clearing_active) sub += ` · → ${divTo} (${acc.vehicles_cleared || 0})`;
+      else if(acc.vehicles_cleared > 0) sub += ` · ✅ ${acc.vehicles_cleared} → ${divTo}`;
+      if(acc.ambulance_dispatched) sub += ' · 🚑';
+      accSub.textContent = sub;
+    } else {
+      accCard.classList.remove('accident-active');
+      accVal.textContent = 'CLEAR';
+      accVal.style.color = 'var(--green)';
+      accSub.textContent = 'No incidents';
+    }
+  }
+};
+
+evtSource.onerror = () => {
+  document.getElementById('hSimTime').textContent = 'Reconnecting…';
+};
+</script>
+</body>
+</html>
